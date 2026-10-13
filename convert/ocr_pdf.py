@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-import fitz  # PyMuPDF
+import pymupdf
 import ollama
 
 PROMPT = (
@@ -18,14 +18,14 @@ PROMPT = (
 )
 
 
-def render_page(page: fitz.Page, dpi: int, max_side: int) -> tuple[bytes, int, int]:
+def render_page(page: pymupdf.Page, dpi: int, max_side: int) -> tuple[bytes, int, int]:
     """Render a page to PNG, downscaled so the longest side is <= max_side."""
     zoom = dpi / 72
-    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom))
     longest = max(pix.width, pix.height)
     if longest > max_side:
         scale = max_side / longest
-        pix = page.get_pixmap(matrix=fitz.Matrix(zoom * scale, zoom * scale))
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom * scale, zoom * scale))
     return pix.tobytes("png"), pix.width, pix.height
 
 
@@ -44,13 +44,13 @@ def parse_lines(raw: str) -> list[dict] | None:
     ]
 
 
-def clear_text_layer(page: fitz.Page) -> None:
+def clear_text_layer(page: pymupdf.Page) -> None:
     """Remove existing (bad) OCR text while keeping the scanned image."""
     page.add_redact_annot(page.rect)
-    page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE, graphics=0)
+    page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE, graphics=0)
 
 
-def add_invisible_text(page: fitz.Page, lines: list[dict], img_w: int, img_h: int) -> None:
+def add_invisible_text(page: pymupdf.Page, lines: list[dict], img_w: int, img_h: int) -> None:
     sx = page.rect.width / img_w
     sy = page.rect.height / img_h
     for line in lines:
@@ -71,7 +71,7 @@ def add_invisible_text(page: fitz.Page, lines: list[dict], img_w: int, img_h: in
         )
 
 
-def add_page_level_text(page: fitz.Page, raw: str) -> None:
+def add_page_level_text(page: pymupdf.Page, raw: str) -> None:
     """Fallback when no bounding boxes are available: invisible text at top-left."""
     page.insert_textbox(page.rect, raw, fontsize=8, render_mode=3)
 
@@ -98,7 +98,7 @@ def main() -> int:
 
     output = args.output or args.input.with_suffix(".ocr.pdf")
     client = ollama.Client(host=args.host)
-    doc = fitz.open(args.input)
+    doc = pymupdf.open(args.input)
     all_text: list[str] = []
 
     for i, page in enumerate(doc, 1):

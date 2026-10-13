@@ -1,9 +1,9 @@
-# PDF re-OCR with Qwen2.5-VL
+# PDF re-OCR (macOS Vision + Qwen2.5-VL)
 
-Qwen 2.5 itself is text-only. Its vision variant, **Qwen2.5-VL**, does the OCR.
-This tool renders each page, sends it to a local Ollama model, removes the existing
-text layer, and adds the new text as an invisible layer (searchable/selectable).
-Line positions are approximate: lines are spread evenly down the page.
+Each page is OCR'd with the macOS Vision framework, which gives fast text with exact
+line positions. Lines Vision is unsure about (low confidence, odd characters, very long
+words) are cropped and re-read by a local Qwen2.5-VL model via Ollama. The existing text
+layer is removed and replaced with the result as an invisible layer (searchable/selectable).
 
 ## Setup
 
@@ -20,9 +20,11 @@ uv run ocr_pdf.py statement.pdf                      # writes statement.ocr.pdf
 uv run ocr_pdf.py statement.pdf -o out.pdf
 ```
 
-Options: `--model`, `--host`, `--dpi`, `--max-side`, `--num-ctx`.
+Options: `--model`, `--host`, `--dpi`, `--threshold`, `--no-refine`.
 
 ## Notes
 
-- Always spot-check numbers; vision LLMs can misread digits.
+- Always spot-check numbers; both Vision and the model can misread digits.
+- Each replaced line is printed to stderr so you can review the changes.
 - The 32B model was too slow on a 32 GB Mac, so 7B is the default.
+- Requires macOS (uses the Vision framework).

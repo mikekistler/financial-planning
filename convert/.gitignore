@@ -5,4 +5,4 @@ __pycache__/
 
 # Scanned documents and OCR output
 *.pdf
-*.ocr.txt
+*.txt

@@ -47,7 +47,7 @@ def parse_lines(raw: str) -> list[dict] | None:
 def clear_text_layer(page: pymupdf.Page) -> None:
     """Remove existing (bad) OCR text while keeping the scanned image."""
     page.add_redact_annot(page.rect)
-    page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE, graphics=0)
+    page.apply_redactions(images=0, graphics=0)  # 0 = keep images
 
 
 def add_invisible_text(page: pymupdf.Page, lines: list[dict], img_w: int, img_h: int) -> None:
@@ -101,7 +101,7 @@ def main() -> int:
     doc = pymupdf.open(args.input)
     all_text: list[str] = []
 
-    for i, page in enumerate(doc, 1):
+    for i, page in enumerate(doc.pages(), 1):
         print(f"Page {i}/{len(doc)}...", file=sys.stderr)
         image, w, h = render_page(page, args.dpi, args.max_side)
         raw = ocr_page(client, args.model, image)

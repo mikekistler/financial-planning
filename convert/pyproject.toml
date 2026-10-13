@@ -1,0 +1,10 @@
+[project]
+name = "convert"
+version = "0.1.0"
+description = "Re-OCR scanned PDFs with a local Qwen2.5-VL model via Ollama"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "ollama",
+    "pymupdf",
+]

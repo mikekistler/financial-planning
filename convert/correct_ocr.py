@@ -12,7 +12,7 @@ import pymupdf
 def find_lines(page: pymupdf.Page, old: str) -> list[dict]:
     """Return text-layer lines containing `old`, each with its joined text and spans."""
     found = []
-    for block in page.get_text("dict")["blocks"]:
+    for block in page.get_textpage().extractDICT()["blocks"]:
         for line in block.get("lines", []):
             text = "".join(s["text"] for s in line["spans"])
             if old in text:
@@ -39,8 +39,10 @@ def main() -> int:
     ap.add_argument("old", help="current OCR text (may be part of a line)")
     ap.add_argument("new", help="desired text")
     ap.add_argument("-o", "--output", type=Path, help="write here instead of overwriting the input")
-    ap.add_argument("--all", action="store_true", help="replace every matching line, not just a unique one")
     args = ap.parse_args()
+
+    if not args.old:
+        ap.error("current OCR text must not be empty")
 
     doc = pymupdf.open(args.input)
     if not 1 <= args.page <= len(doc):
@@ -51,11 +53,6 @@ def main() -> int:
     lines = find_lines(page, args.old)
     if not lines:
         print(f"Text {args.old!r} not found on page {args.page}", file=sys.stderr)
-        return 1
-    if len(lines) > 1 and not args.all:
-        print(f"{len(lines)} lines match {args.old!r}; use --all or a longer search string:", file=sys.stderr)
-        for line in lines:
-            print(f"  {line['text']!r}", file=sys.stderr)
         return 1
 
     for line in lines:

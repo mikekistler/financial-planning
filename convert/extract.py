@@ -71,7 +71,7 @@ def page_lines(page: pymupdf.Page):
         yield sorted(line, key=lambda x: x[0])
 
 
-def build_row(fund: str, date: str, tokens: list[str]) -> dict[str, str]:
+def build_row(fund: str, date: str, tokens: list[str]) -> dict[str, str] | None:
     desc: list[str] = []
     nums: list[str] = []
     for tok in tokens:
@@ -84,6 +84,9 @@ def build_row(fund: str, date: str, tokens: list[str]) -> dict[str, str]:
     # Only the last four numbers are amounts; earlier ones belong to the description.
     while len(nums) > 4:
         desc.append(nums.pop(0))
+
+    if " ".join(desc).strip().lower() == "ending balance":
+        return None
 
     row = {
         "Fund Symbol": FUND_SYMBOLS.get(fund, ""),
@@ -139,7 +142,9 @@ def extract(pdf_path: Path) -> list[dict[str, str]]:
                     date = first[4]
                     if date.count("/") + date.count("-") == 1 and year:
                         date = f"{date}/{year}"
-                    rows.append(build_row(fund, date, [w[4] for w in words[1:]]))
+                    row = build_row(fund, date, [w[4] for w in words[1:]])
+                    if row:
+                        rows.append(row)
     return rows
 
 

@@ -37,7 +37,7 @@ def recognize(png: bytes) -> list[tuple[str, Box, float]]:
     handler = Vision.VNImageRequestHandler.alloc().initWithData_options_(data, None)
     request = Vision.VNRecognizeTextRequest.alloc().init()
     request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelAccurate)
-    request.setUsesLanguageCorrection_(True)
+    request.setUsesLanguageCorrection_(False)  # Dictionary correction tends to mangle numbers.
     ok, err = handler.performRequests_error_([request], None)
     if not ok:
         raise RuntimeError(f"Vision request failed: {err}")

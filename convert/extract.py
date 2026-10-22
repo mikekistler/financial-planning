@@ -23,12 +23,13 @@ FUND_SYMBOLS = {
 }
 
 FIELDS = [
-    "Fund Symbol",
     "Trade Date",
+    "Fund Symbol",
     "Transaction Description",
     "Dollar Amount",
+    "Quantity",
     "Share Price",
-    "Share Amount",
+    "Commissions & Fees",
     "Shares Owned",
 ]
 
@@ -42,6 +43,7 @@ ROW_TOLERANCE = 4.0  # points
 DATE_MAX_X = 80.0  # trade dates sit in the leftmost column
 # Numbers such as 1,234.56  $50.00  (12.5)  -3.210  .5
 NUM_RE = re.compile(r"^[-(]?\$?[-(]?\d[\d,]*(?:\.\d+)?\)?$|^[-(]?\$?\.\d+\)?$")
+FEE_RE = re.compile(r"\b(?:FEE|FEES|COMMISSION|COMMISSIONS)\b", re.IGNORECASE)
 
 
 def clean_number(token: str) -> str:
@@ -93,8 +95,9 @@ def build_row(fund: str, date: str, tokens: list[str]) -> dict[str, str] | None:
         "Trade Date": date,
         "Transaction Description": " ".join(desc),
         "Dollar Amount": "",
+        "Commissions & Fees": "",
+        "Quantity": "",
         "Share Price": "",
-        "Share Amount": "",
         "Shares Owned": "",
     }
     values = [clean_number(n) for n in nums]
@@ -102,7 +105,7 @@ def build_row(fund: str, date: str, tokens: list[str]) -> dict[str, str] | None:
         (
             row["Dollar Amount"],
             row["Share Price"],
-            row["Share Amount"],
+            row["Quantity"],
             row["Shares Owned"],
         ) = values
     elif len(values) == 1:
@@ -116,6 +119,20 @@ def build_row(fund: str, date: str, tokens: list[str]) -> dict[str, str] | None:
     return row
 
 
+def fee_amount(tokens: list[str]) -> str | None:
+    desc: list[str] = []
+    nums: list[str] = []
+    for tok in tokens:
+        if NUM_RE.match(tok) and (desc or nums):
+            nums.append(tok)
+        else:
+            desc.append(tok)
+
+    if FEE_RE.search(" ".join(desc)) and len(nums) == 1:
+        return clean_number(nums[0])
+    return None
+
+
 def extract(pdf_path: Path) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     fund = ""
@@ -123,6 +140,7 @@ def extract(pdf_path: Path) -> list[dict[str, str]]:
 
     with pymupdf.open(pdf_path) as doc:
         for page in doc.pages():
+            previous_transaction: dict[str, str] | None = None
             for words in page_lines(page):
                 text = " ".join(w[4] for w in words)
 
@@ -135,6 +153,14 @@ def extract(pdf_path: Path) -> list[dict[str, str]]:
                     fund = m.group(1)
                     if fund not in FUND_SYMBOLS:
                         print(f"warning: unknown fund number {fund} in {pdf_path.name}", file=sys.stderr)
+                    previous_transaction = None
+                    continue
+
+                fee = fee_amount([w[4] for w in words])
+                if fee is not None:
+                    if previous_transaction is not None:
+                        previous_transaction["Commissions & Fees"] = fee
+                    previous_transaction = None
                     continue
 
                 first = words[0]
@@ -145,6 +171,9 @@ def extract(pdf_path: Path) -> list[dict[str, str]]:
                     row = build_row(fund, date, [w[4] for w in words[1:]])
                     if row:
                         rows.append(row)
+                        previous_transaction = row
+                        continue
+                previous_transaction = None
     return rows
 
 

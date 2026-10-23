@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "ollama",
+    "openpyxl>=3.1.5",
     "pymupdf",
     "pyobjc-framework-vision>=12.2.2",
 ]

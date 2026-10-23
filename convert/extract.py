@@ -16,12 +16,18 @@ from typing import cast
 import pymupdf
 
 FUND_SYMBOLS = {
+    "30": "VMMXX",
     "40": "VFINX",
     "52": "VGHCX",
+    "71": "VFICX",
     "81": "VWIGX",
     "98": "VEXMX",
     "540": "VFIAX",
     "552": "VGHAX",
+    "571": "VFIDX",
+    "581": "VWILX",
+    "598": "VEXAX",
+    "5123": "VGSLX",
 }
 
 FIELDS = [
@@ -44,6 +50,8 @@ FUND_ACCOUNT_RE = re.compile(
     r"Fund\s*/\s*Account\s*(?:No\.?|Number|#)\s*:?\s*(\d{1,4})\s*/\s*\d+",
     re.IGNORECASE,
 )
+# Statements from 2009 on: "Extended Mkt Index Inv 0098-09875995419"
+FUND_DASH_ACCOUNT_RE = re.compile(r"\s(\d{4})-\d{6,}\b")
 DATE_RE = re.compile(r"^\d{1,2}[/-]\d{1,2}(?:[/-](?:\d{4}|\d{2}))?$")
 YEAR_RE = re.compile(r"\b((?:19|20)\d\d)\s+CALENDAR\s+YEAR", re.IGNORECASE)
 ROW_TOLERANCE = 4.0  # points
@@ -155,7 +163,7 @@ def extract(pdf_path: Path) -> list[dict[str, str]]:
                 if m:
                     year = m.group(1)
 
-                m = FUND_ACCOUNT_RE.search(text) or FUND_RE.search(text)
+                m = FUND_ACCOUNT_RE.search(text) or FUND_DASH_ACCOUNT_RE.search(text) or FUND_RE.search(text)
                 if m:
                     fund = m.group(1).lstrip("0") or "0"
                     if fund not in FUND_SYMBOLS:

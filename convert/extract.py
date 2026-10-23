@@ -20,6 +20,8 @@ FUND_SYMBOLS = {
     "52": "VGHCX",
     "81": "VWIGX",
     "98": "VEXMX",
+    "540": "VFIAX",
+    "552": "VGHAX",
 }
 
 FIELDS = [

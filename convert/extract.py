@@ -37,6 +37,11 @@ FUND_RE = re.compile(
     r"(?:Tele-?\s*Account\s*(?:No\.?|Number)|Fund\s*(?:No\.?|Number|#))\s*:?\s*(\d{1,3})\b",
     re.IGNORECASE,
 )
+# Statements from 2003 on: "Fund / Account no. 0098 / 09875995419"
+FUND_ACCOUNT_RE = re.compile(
+    r"Fund\s*/\s*Account\s*(?:No\.?|Number|#)\s*:?\s*(\d{1,4})\s*/\s*\d+",
+    re.IGNORECASE,
+)
 DATE_RE = re.compile(r"^\d{1,2}[/-]\d{1,2}(?:[/-](?:\d{4}|\d{2}))?$")
 YEAR_RE = re.compile(r"\b((?:19|20)\d\d)\s+CALENDAR\s+YEAR", re.IGNORECASE)
 ROW_TOLERANCE = 4.0  # points
@@ -148,9 +153,9 @@ def extract(pdf_path: Path) -> list[dict[str, str]]:
                 if m:
                     year = m.group(1)
 
-                m = FUND_RE.search(text)
+                m = FUND_ACCOUNT_RE.search(text) or FUND_RE.search(text)
                 if m:
-                    fund = m.group(1)
+                    fund = m.group(1).lstrip("0") or "0"
                     if fund not in FUND_SYMBOLS:
                         print(f"warning: unknown fund number {fund} in {pdf_path.name}", file=sys.stderr)
                     previous_transaction = None

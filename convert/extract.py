@@ -73,7 +73,7 @@ def page_lines(page: pymupdf.Page):
         yield sorted(line, key=lambda x: x[0])
 
 
-def build_row(fund: str, date: str, tokens: list[str]) -> dict[str, str] | None:
+def build_row(fund: str, date: str, tokens: list[str], page_number: int) -> dict[str, str] | None:
     desc: list[str] = []
     nums: list[str] = []
     for tok in tokens:
@@ -113,7 +113,7 @@ def build_row(fund: str, date: str, tokens: list[str]) -> dict[str, str] | None:
     else:
         print(
             f"error: expected 1 or 4 amounts, found {len(nums)} for fund {fund} "
-            f"on {date} ({' '.join(desc)}): {' '.join(nums)}",
+            f"on {date}, page {page_number} ({' '.join(desc)}): {' '.join(nums)}",
             file=sys.stderr,
         )
     return row
@@ -139,7 +139,7 @@ def extract(pdf_path: Path) -> list[dict[str, str]]:
     year = ""
 
     with pymupdf.open(pdf_path) as doc:
-        for page in doc.pages():
+        for page_number, page in enumerate(doc.pages(), start=1):
             previous_transaction: dict[str, str] | None = None
             for words in page_lines(page):
                 text = " ".join(w[4] for w in words)
@@ -168,7 +168,7 @@ def extract(pdf_path: Path) -> list[dict[str, str]]:
                     date = first[4]
                     if date.count("/") + date.count("-") == 1 and year:
                         date = f"{date}/{year}"
-                    row = build_row(fund, date, [w[4] for w in words[1:]])
+                    row = build_row(fund, date, [w[4] for w in words[1:]], page_number)
                     if row:
                         rows.append(row)
                         previous_transaction = row

@@ -37,7 +37,7 @@ FIELDS = [
     "Dollar Amount",
     "Quantity",
     "Share Price",
-    "Commissions & Fees",
+    "Commission & fees",
     "Shares Owned",
 ]
 
@@ -53,7 +53,14 @@ FUND_ACCOUNT_RE = re.compile(
 # Statements from 2009 on: "Extended Mkt Index Inv 0098-09875995419"
 FUND_DASH_ACCOUNT_RE = re.compile(r"\s(\d{4})-\d{6,}\b")
 DATE_RE = re.compile(r"^\d{1,2}[/-]\d{1,2}(?:[/-](?:\d{4}|\d{2}))?$")
-YEAR_RE = re.compile(r"\b((?:19|20)\d\d)\s+CALENDAR\s+YEAR", re.IGNORECASE)
+YEAR_RE = re.compile(
+    r"\b((?:19|20)\d\d)\s+CALENDAR\s+YEAR"
+    # Page header: "YEAR-TO-DATE DECEMBER 31, 1996 - PAGE 2 OF 4"
+    r"|YEAR[-\s]*TO[-\s]*DATE\s+[A-Z]+\.?\s+\d{1,2},?\s+((?:19|20)\d\d)"
+    # Page header: "DECEMBER 31, 1997, YEAR-TO-DATE"
+    r"|[A-Z]+\.?\s+\d{1,2},?\s+((?:19|20)\d\d),?\s+YEAR[-\s]*TO[-\s]*DATE",
+    re.IGNORECASE,
+)
 ROW_TOLERANCE = 4.0  # points
 DATE_MAX_X = 80.0  # trade dates sit in the leftmost column
 # Numbers such as 1,234.56  $50.00  (12.5)  -3.210  .5
@@ -110,7 +117,7 @@ def build_row(fund: str, date: str, tokens: list[str], page_number: int) -> dict
         "Trade Date": date,
         "Transaction Description": " ".join(desc),
         "Dollar Amount": "",
-        "Commissions & Fees": "",
+        "Commission & fees": "",
         "Quantity": "",
         "Share Price": "",
         "Shares Owned": "",
@@ -161,7 +168,7 @@ def extract(pdf_path: Path) -> list[dict[str, str]]:
 
                 m = YEAR_RE.search(text)
                 if m:
-                    year = m.group(1)
+                    year = next(group for group in m.groups() if group is not None)
 
                 m = FUND_ACCOUNT_RE.search(text) or FUND_DASH_ACCOUNT_RE.search(text) or FUND_RE.search(text)
                 if m:
@@ -174,7 +181,7 @@ def extract(pdf_path: Path) -> list[dict[str, str]]:
                 fee = fee_amount([w[4] for w in words])
                 if fee is not None:
                     if previous_transaction is not None:
-                        previous_transaction["Commissions & Fees"] = fee
+                        previous_transaction["Commission & fees"] = fee
                     previous_transaction = None
                     continue
 

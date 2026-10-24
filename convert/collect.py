@@ -17,8 +17,21 @@ from pathlib import Path
 from openpyxl import Workbook, load_workbook
 
 SYMBOL_HEADERS = ("fund symbol", "symbol")
-DATE_HEADERS = ("trade date", "date", "transaction date", "settlement date")
-DATE_FORMATS = ("%m/%d/%Y", "%m-%d-%Y", "%Y-%m-%d", "%m/%d/%y", "%m-%d-%y")
+DATE_COLUMN = "Trade Date"
+# Header variants (lowercased, trailing "*" removed) mapped to one canonical column name.
+COLUMN_ALIASES = {
+    "amount": "Dollar Amount",
+    "fund symbol": "Fund Symbol",
+    "price": "Share Price",
+    "symbol": "Fund Symbol",
+    "trade date": "Trade Date",
+}
+DROPPED_COLUMNS = {"account type", "name", "settlement date", "type"}
+DATE_FORMATS = (
+    "%m/%d/%Y",
+    "%Y/%m/%d",
+    "%m/%d/%y",
+)
 
 
 def read_csv(path: Path) -> list[list[str]]:
@@ -62,29 +75,45 @@ def find_header(rows: list[list[str]]) -> int | None:
     return None
 
 
+def canonical_column(header: str) -> str | None:
+    """Canonical column name for a raw header, or None if the column should be omitted."""
+    key = re.sub(r"\s+", " ", header.strip().rstrip("*").strip()).lower()
+    if not key or key in DROPPED_COLUMNS:
+        return None
+    return COLUMN_ALIASES.get(key, header.strip().rstrip("*").strip())
+
+
 def extract(rows: list[list[str]], symbol: str, source: str) -> tuple[list[str], list[dict[str, str]]]:
     start = find_header(rows)
     if start is None:
         return [], []
     header = [c.strip() for c in rows[start]]
     sym_col = next(i for i, h in enumerate(header) if h.lower() in SYMBOL_HEADERS)
+    names = [canonical_column(h) for h in header]
     out = []
     for row in rows[start + 1 :]:
         if len(row) <= sym_col or row[sym_col].strip().upper() != symbol:
             continue
-        rec = {h: (row[i].strip() if i < len(row) else "") for i, h in enumerate(header) if h}
+        rec: dict[str, str] = {}
+        for i, h in enumerate(names):
+            if h is None:
+                continue
+            value = row[i].strip() if i < len(row) else ""
+            if not rec.get(h):
+                rec[h] = value
         rec["Source File"] = source
         out.append(rec)
-    return [h for h in header if h], out
+    return list(dict.fromkeys(h for h in names if h)), out
 
 
-def parse_date(value: str) -> date:
+def parse_date(value: str) -> date | None:
+    value = value.strip()
     for fmt in DATE_FORMATS:
         try:
-            return datetime.strptime(value.strip(), fmt).date()
+            return datetime.strptime(value, fmt).date()
         except ValueError:
             continue
-    return date.max  # unparseable dates sort last
+    return None
 
 
 def to_number(value: str) -> float | str:
@@ -143,9 +172,24 @@ def main() -> None:
     if not records:
         sys.exit(f"No transactions for {symbol} found in {len(files)} file(s) under {args.folder}")
 
-    date_col = next((c for c in columns if c.lower() in DATE_HEADERS), None)
+    date_columns = [column for column in columns if "date" in column.lower()]
+    date_col = DATE_COLUMN if DATE_COLUMN in columns else None
+    for record in records:
+        for column in date_columns:
+            value = record.get(column, "")
+            if not value:
+                continue
+            parsed = parse_date(value)
+            if parsed is None:
+                print(
+                    f"warning: could not normalize {column} value {value!r} "
+                    f"from {record['Source File']}",
+                    file=sys.stderr,
+                )
+            else:
+                record[column] = parsed.strftime("%m/%d/%Y")
     if date_col:
-        records.sort(key=lambda r: parse_date(r.get(date_col, "")))
+        records.sort(key=lambda r: parse_date(r.get(date_col, "")) or date.max)
     columns.append("Source File")
 
     if output.suffix.lower() == ".xlsx":
